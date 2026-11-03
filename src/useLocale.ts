@@ -11,7 +11,11 @@ export function useLocale(languages: PfLanguage[]) {
 
   const setLocale = useCallback(async (code: string) => {
     await i18n.changeLanguage(code)
-    await Settings.set(STORE_KEY, code)
+    try {
+      await Settings.set(STORE_KEY, code)
+    } catch {
+      // blocked storage: the language lasts for this page only
+    }
   }, [i18n])
 
   return { locale, setLocale, languages }

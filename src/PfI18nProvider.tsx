@@ -25,14 +25,18 @@ export function PfI18nProvider({ languages, resources, fallback = 'en', children
     const supportedCodes = languages.map(l => l.code)
 
     let started = false
-    const start = (savedLocale?: string) => {
-      if (started) return
+    let cancelled = false
+    let startLang = ''
+    let initDone: Promise<unknown> = Promise.resolve()
+    // `read`: the stored language was read (possibly nothing stored). Only then is it safe to write the language back.
+    const start = (savedLocale: string | undefined, read: boolean) => {
+      if (started || cancelled) return
       started = true
       clearTimeout(timer)
       const instance = i18n.createInstance()
       instanceRef.current = instance
 
-      instance
+      initDone = instance
         .use(LanguageDetector)
         .use(initReactI18next)
         .init({
@@ -48,17 +52,33 @@ export function PfI18nProvider({ languages, resources, fallback = 'en', children
           },
         })
         .then(() => {
+          startLang = instance.language
           // Blocked storage drops the save: the language lasts for this page only.
-          Promise.resolve().then(() => Settings.set(STORE_KEY, instance.language)).catch(() => {})
-          setReady(true)
+          if (read) Promise.resolve().then(() => Settings.set(STORE_KEY, instance.language)).catch(() => {})
+          if (!cancelled) setReady(true)
         })
     }
 
-    // A read that fails, throws or never settles starts with the default language.
-    const timer = setTimeout(start, STORAGE_READ_TIMEOUT_MS)
+    // A read that fails, throws or never settles starts with the default language (and writes nothing back).
+    const timer = setTimeout(() => start(undefined, false), STORAGE_READ_TIMEOUT_MS)
     Promise.resolve()
       .then(() => Settings.get<string>(STORE_KEY))
-      .then(start, () => start())
+      .then(
+        (saved) => {
+          if (!started) return start(saved, true)
+          // A saved language arriving after the timeout still wins, unless the language has changed since.
+          const instance = instanceRef.current
+          if (!saved || !instance) return
+          void initDone.then(() => {
+            if (!cancelled && instance.language === startLang && saved !== startLang) void instance.changeLanguage(saved)
+          })
+        },
+        () => start(undefined, false),
+      )
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready || !instanceRef.current) return null
