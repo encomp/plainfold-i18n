@@ -14,6 +14,9 @@ interface PfI18nProviderProps {
 
 const STORE_KEY = 'pf:i18n:locale'
 
+/** How long to wait for the saved language before starting with the default (blocked site data can leave the read pending). */
+export const STORAGE_READ_TIMEOUT_MS = 1500
+
 export function PfI18nProvider({ languages, resources, fallback = 'en', children }: PfI18nProviderProps) {
   const [ready, setReady] = useState(false)
   const instanceRef = useRef<I18nInstance | null>(null)
@@ -21,7 +24,11 @@ export function PfI18nProvider({ languages, resources, fallback = 'en', children
   useEffect(() => {
     const supportedCodes = languages.map(l => l.code)
 
-    Settings.get<string>(STORE_KEY).then((savedLocale) => {
+    let started = false
+    const start = (savedLocale?: string) => {
+      if (started) return
+      started = true
+      clearTimeout(timer)
       const instance = i18n.createInstance()
       instanceRef.current = instance
 
@@ -41,10 +48,17 @@ export function PfI18nProvider({ languages, resources, fallback = 'en', children
           },
         })
         .then(() => {
-          Settings.set(STORE_KEY, instance.language)
+          // Blocked storage drops the save: the language lasts for this page only.
+          Promise.resolve().then(() => Settings.set(STORE_KEY, instance.language)).catch(() => {})
           setReady(true)
         })
-    })
+    }
+
+    // A read that fails, throws or never settles starts with the default language.
+    const timer = setTimeout(start, STORAGE_READ_TIMEOUT_MS)
+    Promise.resolve()
+      .then(() => Settings.get<string>(STORE_KEY))
+      .then(start, () => start())
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready || !instanceRef.current) return null
