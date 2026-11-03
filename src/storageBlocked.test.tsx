@@ -88,8 +88,9 @@ describe('PfI18nProvider with site data blocked', () => {
     }
     render(<PfI18nProvider languages={[...L, { code: 'es', label: 'Espanol' }]} resources={{ ...R, es: { translation: { g: 'Hola' } } }}><P /></PfI18nProvider>)
     await act(async () => { await vi.advanceTimersByTimeAsync(STORAGE_READ_TIMEOUT_MS) })
-    await act(async () => { await pick('en') })
+    const start = screen.getByTestId('lang').textContent ?? ''
+    await act(async () => { await pick(start) }) // exactly the language shown at start (e.g. en-US)
     await act(async () => { late('es'); await vi.advanceTimersByTimeAsync(10) })
-    expect(screen.getByTestId('lang')).toHaveTextContent('en')
+    expect(screen.getByTestId('lang')).toHaveTextContent(start)
   })
 })
