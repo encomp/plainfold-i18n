@@ -76,4 +76,20 @@ describe('PfI18nProvider with site data blocked', () => {
     await act(async () => { await pick('es') })
     expect(screen.getByTestId('lang')).toHaveTextContent('es')
   })
+
+  it('a pick that equals the default, made before the late read lands, is not overridden', async () => {
+    vi.useFakeTimers()
+    let late: (v: string) => void = () => {}
+    vi.mocked(Settings.get).mockReturnValue(new Promise<string>((r) => { late = r }))
+    let pick: (c: string) => Promise<void> = async () => {}
+    function P() {
+      pick = useLocale(L).setLocale
+      return <T />
+    }
+    render(<PfI18nProvider languages={[...L, { code: 'es', label: 'Espanol' }]} resources={{ ...R, es: { translation: { g: 'Hola' } } }}><P /></PfI18nProvider>)
+    await act(async () => { await vi.advanceTimersByTimeAsync(STORAGE_READ_TIMEOUT_MS) })
+    await act(async () => { await pick('en') })
+    await act(async () => { late('es'); await vi.advanceTimersByTimeAsync(10) })
+    expect(screen.getByTestId('lang')).toHaveTextContent('en')
+  })
 })

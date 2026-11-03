@@ -17,6 +17,9 @@ const STORE_KEY = 'pf:i18n:locale'
 /** How long to wait for the saved language before starting with the default (blocked site data can leave the read pending). */
 export const STORAGE_READ_TIMEOUT_MS = 1500
 
+/** Instances whose language the person has picked; a saved language arriving late never overrides these. */
+export const pickedInstances = new WeakSet<I18nInstance>()
+
 export function PfI18nProvider({ languages, resources, fallback = 'en', children }: PfI18nProviderProps) {
   const [ready, setReady] = useState(false)
   const instanceRef = useRef<I18nInstance | null>(null)
@@ -26,7 +29,6 @@ export function PfI18nProvider({ languages, resources, fallback = 'en', children
 
     let started = false
     let cancelled = false
-    let startLang = ''
     let initDone: Promise<unknown> = Promise.resolve()
     // `read`: the stored language was read (possibly nothing stored). Only then is it safe to write the language back.
     const start = (savedLocale: string | undefined, read: boolean) => {
@@ -52,7 +54,6 @@ export function PfI18nProvider({ languages, resources, fallback = 'en', children
           },
         })
         .then(() => {
-          startLang = instance.language
           // Blocked storage drops the save: the language lasts for this page only.
           if (read) Promise.resolve().then(() => Settings.set(STORE_KEY, instance.language)).catch(() => {})
           if (!cancelled) setReady(true)
@@ -66,11 +67,11 @@ export function PfI18nProvider({ languages, resources, fallback = 'en', children
       .then(
         (saved) => {
           if (!started) return start(saved, true)
-          // A saved language arriving after the timeout still wins, unless the language has changed since.
+          // A saved language arriving after the timeout still wins, unless the person has picked one since.
           const instance = instanceRef.current
           if (!saved || !instance) return
           void initDone.then(() => {
-            if (!cancelled && instance.language === startLang && saved !== startLang) void instance.changeLanguage(saved)
+            if (!cancelled && !pickedInstances.has(instance) && saved !== instance.language) void instance.changeLanguage(saved)
           })
         },
         () => start(undefined, false),
