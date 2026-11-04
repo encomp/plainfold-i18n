@@ -1,4 +1,4 @@
-export { PfI18nProvider } from './PfI18nProvider'
+export { PfI18nProvider, STORAGE_READ_TIMEOUT_MS } from './PfI18nProvider'
 export { useLocale } from './useLocale'
 export { PfLanguageSwitcher } from './PfLanguageSwitcher'
 export type { PfLanguage } from './types'
