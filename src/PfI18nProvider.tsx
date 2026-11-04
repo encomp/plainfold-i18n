@@ -4,6 +4,7 @@ import { I18nextProvider, initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { Settings } from '@plainfold/store'
 import type { PfLanguage } from './types'
+import { pickedInstances } from './picked'
 
 interface PfI18nProviderProps {
   languages: PfLanguage[]
@@ -16,9 +17,6 @@ const STORE_KEY = 'pf:i18n:locale'
 
 /** How long to wait for the saved language before starting with the default (blocked site data can leave the read pending). */
 export const STORAGE_READ_TIMEOUT_MS = 1500
-
-/** Instances whose language the person has picked; a saved language arriving late never overrides these. */
-export const pickedInstances = new WeakSet<I18nInstance>()
 
 export function PfI18nProvider({ languages, resources, fallback = 'en', children }: PfI18nProviderProps) {
   const [ready, setReady] = useState(false)

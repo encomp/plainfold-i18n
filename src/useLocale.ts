@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useCallback } from 'react'
 import { Settings } from '@plainfold/store'
-import { pickedInstances } from './PfI18nProvider'
+import { pickedInstances } from './picked'
 import type { PfLanguage } from './types'
 
 const STORE_KEY = 'pf:i18n:locale'
